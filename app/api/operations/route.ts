@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const hasExpense = Boolean(body.hasExpense);
 
     const selectedWorks = Array.isArray(body.workItemIds)
-      ? body.workItemIds.map((item) => String(item).trim()).filter(Boolean)
+      ? body.workItemIds.map((item: unknown) => String(item).trim()).filter(Boolean)
       : [];
 
     const expenseCategory = String(body.expenseCategory || "").trim();

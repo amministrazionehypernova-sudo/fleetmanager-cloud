@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const workItemIds = Array.isArray(body.workItemIds)
-      ? body.workItemIds.map((item) => String(item))
+      ? body.workItemIds.map((item: unknown) => String(item))
       : [];
 
     const worksText = workItemIds.join(", ");
@@ -78,7 +78,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
 
     const workItemIds = Array.isArray(body.workItemIds)
-      ? body.workItemIds.map((item) => String(item))
+      ? body.workItemIds.map((item: unknown) => String(item))
       : [];
 
     const worksText = workItemIds.join(", ");

@@ -1,216 +1,223 @@
+import Link from "next/link";
 import AppLayout from "@/components/AppLayout";
 import { prisma } from "@/lib/prisma";
 
 const DEMO_COMPANY_ID = "demo-company";
 
-function formatEuro(value: number) {
-  return `€ ${value.toFixed(2)}`;
-}
-
-function formatNumber(value: number) {
-  return value.toLocaleString("it-IT", {
+function formatKm(value: number | null | undefined) {
+  return (value || 0).toLocaleString("it-IT", {
     maximumFractionDigits: 0,
   });
 }
 
-function formatDecimal(value: number) {
-  return value.toFixed(2);
+function formatEuro(value: number | null | undefined) {
+  return `€ ${(value || 0).toFixed(2)}`;
 }
 
-function getDateLevel(value: Date | null) {
-  if (!value) return null;
+function formatDate(value: Date | string | null | undefined) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("it-IT");
+}
+
+function monthStart() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
+function getDateLevel(value: Date | null, warningDays = 30) {
+  if (!value) return "none";
 
   const today = new Date();
   const diffMs = value.getTime() - today.getTime();
   const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
   if (daysLeft < 0) return "red";
-  if (daysLeft <= 30) return "yellow";
+  if (daysLeft <= warningDays) return "yellow";
   return "green";
 }
 
-function getKmLevel(currentKm: number, dueKm: number | null) {
-  if (!dueKm) return null;
+function getMaintenanceLevel(
+  currentKm: number,
+  dueType: string,
+  dueKm: number | null,
+  dueDate: Date | null,
+  warningKm: number,
+  warningDays: number
+) {
+  if (dueType === "km" && dueKm) {
+    const kmLeft = dueKm - currentKm;
 
-  const kmLeft = dueKm - currentKm;
+    if (kmLeft < 0) return "red";
+    if (kmLeft <= warningKm) return "yellow";
+    return "green";
+  }
 
-  if (kmLeft < 0) return "red";
-  if (kmLeft <= 1000) return "yellow";
-  return "green";
+  if (dueType === "date" && dueDate) {
+    return getDateLevel(dueDate, warningDays);
+  }
+
+  return "none";
 }
 
 export default async function DashboardPage() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
   const vehicles = await prisma.vehicle.findMany({
     where: {
       companyId: DEMO_COMPANY_ID,
-      status: "active",
     },
     include: {
-      dailyRecords: true,
       fuelRecords: true,
       expenses: true,
-    },
-  });
-
-  const vehiclesCount = vehicles.length;
-
-  const dailyAll = await prisma.dailyRecord.aggregate({
-    where: {
-      companyId: DEMO_COMPANY_ID,
-    },
-    _sum: {
-      kmDone: true,
-    },
-  });
-
-  const fuelAll = await prisma.fuelRecord.aggregate({
-    where: {
-      companyId: DEMO_COMPANY_ID,
-    },
-    _sum: {
-      liters: true,
-      totalCost: true,
-    },
-  });
-
-  const expensesAll = await prisma.expense.aggregate({
-    where: {
-      companyId: DEMO_COMPANY_ID,
-    },
-    _sum: {
-      amount: true,
-    },
-  });
-
-  const daily30 = await prisma.dailyRecord.aggregate({
-    where: {
-      companyId: DEMO_COMPANY_ID,
-      recordDate: {
-        gte: thirtyDaysAgo,
+      dailyRecords: true,
+      documentRenewals: true,
+      scheduledMaintenances: {
+        where: {
+          status: "active",
+        },
       },
     },
-    _sum: {
-      kmDone: true,
+    orderBy: {
+      createdAt: "desc",
     },
   });
 
-  const fuel30 = await prisma.fuelRecord.aggregate({
+  const monthFrom = monthStart();
+
+  const monthlyFuel = await prisma.fuelRecord.findMany({
     where: {
       companyId: DEMO_COMPANY_ID,
       fuelDate: {
-        gte: thirtyDaysAgo,
+        gte: monthFrom,
       },
     },
-    _sum: {
-      liters: true,
-      totalCost: true,
+    include: {
+      vehicle: true,
+    },
+    orderBy: {
+      fuelDate: "desc",
     },
   });
 
-  const expenses30 = await prisma.expense.aggregate({
+  const monthlyExpenses = await prisma.expense.findMany({
     where: {
       companyId: DEMO_COMPANY_ID,
       expenseDate: {
-        gte: thirtyDaysAgo,
+        gte: monthFrom,
       },
     },
-    _sum: {
-      amount: true,
+    include: {
+      vehicle: true,
+    },
+    orderBy: {
+      expenseDate: "desc",
     },
   });
 
-  const kmTotal = dailyAll._sum.kmDone || 0;
-  const fuelLitersTotal = fuelAll._sum.liters || 0;
-  const fuelCostTotal = fuelAll._sum.totalCost || 0;
-  const expensesCostTotal = expensesAll._sum.amount || 0;
-  const totalCost = fuelCostTotal + expensesCostTotal;
+  const monthlyRecords = await prisma.dailyRecord.findMany({
+    where: {
+      companyId: DEMO_COMPANY_ID,
+      recordDate: {
+        gte: monthFrom,
+      },
+    },
+    include: {
+      vehicle: true,
+    },
+    orderBy: {
+      recordDate: "desc",
+    },
+  });
 
-  const km30 = daily30._sum.kmDone || 0;
-  const fuelLiters30 = fuel30._sum.liters || 0;
-  const fuelCost30 = fuel30._sum.totalCost || 0;
-  const expensesCost30 = expenses30._sum.amount || 0;
-  const totalCost30 = fuelCost30 + expensesCost30;
+  const activeVehicles = vehicles.filter(
+    (vehicle) => vehicle.status === "active"
+  );
 
-  const avgKmPerLiter =
-    fuelLitersTotal > 0 ? kmTotal / fuelLitersTotal : 0;
+  const totalMonthKm = monthlyRecords.reduce(
+    (sum, record) => sum + record.kmDone,
+    0
+  );
 
-  const avgFuelCostPerKm =
-    kmTotal > 0 ? fuelCostTotal / kmTotal : 0;
+  const totalMonthFuelCost = monthlyFuel.reduce(
+    (sum, record) => sum + record.totalCost,
+    0
+  );
 
-  const avgTotalCostPerKm =
-    kmTotal > 0 ? totalCost / kmTotal : 0;
+  const totalMonthFuelLiters = monthlyFuel.reduce(
+    (sum, record) => sum + record.liters,
+    0
+  );
 
-  const avgKmPerLiter30 =
-    fuelLiters30 > 0 ? km30 / fuelLiters30 : 0;
+  const totalMonthMaintenanceCost = monthlyExpenses.reduce(
+    (sum, expense) => sum + expense.amount,
+    0
+  );
 
-  const avgFuelCostPerKm30 =
-    km30 > 0 ? fuelCost30 / km30 : 0;
+  const totalMonthCost = totalMonthFuelCost + totalMonthMaintenanceCost;
 
-  const avgTotalCostPerKm30 =
-    km30 > 0 ? totalCost30 / km30 : 0;
+  const costPerKm =
+    totalMonthKm > 0 ? totalMonthCost / totalMonthKm : 0;
 
-  let criticalDeadlines = 0;
-  let warningDeadlines = 0;
-  let okDeadlines = 0;
+  let redDocuments = 0;
+  let yellowDocuments = 0;
+  let redMaintenances = 0;
+  let yellowMaintenances = 0;
 
-  for (const vehicle of vehicles) {
-    const levels = [
-      getDateLevel(vehicle.insuranceExpiry),
-      getDateLevel(vehicle.inspectionExpiry),
-      getDateLevel(vehicle.taxExpiry),
-      getKmLevel(vehicle.currentKm, vehicle.serviceDueKm),
+  vehicles.forEach((vehicle) => {
+    const documentLevels = [
+      getDateLevel(vehicle.insuranceExpiry, 30),
+      getDateLevel(vehicle.inspectionExpiry, 30),
+      getDateLevel(vehicle.taxExpiry, 30),
     ];
 
-    for (const level of levels) {
-      if (level === "red") criticalDeadlines += 1;
-      if (level === "yellow") warningDeadlines += 1;
-      if (level === "green") okDeadlines += 1;
-    }
-  }
+    documentLevels.forEach((level) => {
+      if (level === "red") redDocuments += 1;
+      if (level === "yellow") yellowDocuments += 1;
+    });
 
-  const topCostVehicles = vehicles
-    .map((vehicle) => {
-      const fuelTotal = vehicle.fuelRecords.reduce(
-        (sum, record) => sum + record.totalCost,
-        0
+    vehicle.scheduledMaintenances.forEach((maintenance) => {
+      const level = getMaintenanceLevel(
+        vehicle.currentKm,
+        maintenance.dueType,
+        maintenance.dueKm,
+        maintenance.dueDate,
+        maintenance.warningKm,
+        maintenance.warningDays
       );
 
-      const expensesTotal = vehicle.expenses.reduce(
-        (sum, expense) => sum + expense.amount,
-        0
-      );
+      if (level === "red") redMaintenances += 1;
+      if (level === "yellow") yellowMaintenances += 1;
+    });
+  });
 
-      return {
-        plate: vehicle.plate,
-        brand: vehicle.brand,
-        model: vehicle.model,
-        total: fuelTotal + expensesTotal,
-      };
-    })
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+  const criticalAlerts = redDocuments + redMaintenances;
+  const warningAlerts = yellowDocuments + yellowMaintenances;
 
-  const topUsageVehicles = vehicles
-    .map((vehicle) => {
-      const totalKm = vehicle.dailyRecords.reduce(
-        (sum, record) => sum + record.kmDone,
-        0
-      );
+  const recentFuel = await prisma.fuelRecord.findMany({
+    where: {
+      companyId: DEMO_COMPANY_ID,
+    },
+    include: {
+      vehicle: true,
+    },
+    orderBy: {
+      fuelDate: "desc",
+    },
+    take: 5,
+  });
 
-      return {
-        plate: vehicle.plate,
-        brand: vehicle.brand,
-        model: vehicle.model,
-        totalKm,
-      };
-    })
-    .sort((a, b) => b.totalKm - a.totalKm)
-    .slice(0, 5);
+  const recentExpenses = await prisma.expense.findMany({
+    where: {
+      companyId: DEMO_COMPANY_ID,
+    },
+    include: {
+      vehicle: true,
+    },
+    orderBy: {
+      expenseDate: "desc",
+    },
+    take: 5,
+  });
 
-  const latestOperations = await prisma.dailyRecord.findMany({
+  const recentOperations = await prisma.dailyRecord.findMany({
     where: {
       companyId: DEMO_COMPANY_ID,
     },
@@ -220,164 +227,214 @@ export default async function DashboardPage() {
     orderBy: {
       recordDate: "desc",
     },
-    take: 8,
+    take: 5,
   });
+
+  const vehicleStats = vehicles.map((vehicle) => {
+    const km = vehicle.dailyRecords.reduce(
+      (sum, record) => sum + record.kmDone,
+      0
+    );
+
+    const fuelCost = vehicle.fuelRecords.reduce(
+      (sum, record) => sum + record.totalCost,
+      0
+    );
+
+    const maintenanceCost = vehicle.expenses.reduce(
+      (sum, expense) => sum + expense.amount,
+      0
+    );
+
+    const totalCost = fuelCost + maintenanceCost;
+
+    return {
+      id: vehicle.id,
+      label: `${vehicle.plate} - ${vehicle.brand || ""} ${vehicle.model || ""}`,
+      km,
+      totalCost,
+    };
+  });
+
+  const mostUsedVehicle = [...vehicleStats].sort((a, b) => b.km - a.km)[0];
+  const mostExpensiveVehicle = [...vehicleStats].sort(
+    (a, b) => b.totalCost - a.totalCost
+  )[0];
 
   return (
     <AppLayout
       title="DASHBOARD"
-      subtitle="Controllo generale flotta, costi, km e scadenze"
+      subtitle="Panoramica operativa flotta"
     >
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <MetricCard
-          label="MEZZI"
-          value={vehiclesCount}
-          caption="unità attive"
+          label="VEICOLI ATTIVI"
+          value={activeVehicles.length}
+          caption={`${vehicles.length} veicoli totali`}
         />
 
         <MetricCard
-          label="KM 30 GG"
-          value={formatNumber(km30)}
-          caption="chilometri registrati"
+          label="ALERT CRITICI"
+          value={criticalAlerts}
+          caption={`${redDocuments} documenti · ${redMaintenances} manutenzioni`}
+          tone={criticalAlerts > 0 ? "red" : "green"}
         />
 
         <MetricCard
-          label="COSTO 30 GG"
-          value={formatEuro(totalCost30)}
+          label="IN SCADENZA"
+          value={warningAlerts}
+          caption={`${yellowDocuments} documenti · ${yellowMaintenances} manutenzioni`}
+          tone={warningAlerts > 0 ? "yellow" : "green"}
+        />
+
+        <MetricCard
+          label="COSTO MESE"
+          value={formatEuro(totalMonthCost)}
           caption="carburante + interventi"
         />
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <MetricCard
-          label="SCADUTE"
-          value={criticalDeadlines}
-          caption="scadenze critiche"
+          label="KM MESE"
+          value={`${formatKm(totalMonthKm)} km`}
+          caption="km registrati nel mese"
         />
 
         <MetricCard
-          label="IN ARRIVO"
-          value={warningDeadlines}
-          caption="entro 30 giorni / 1000 km"
+          label="LITRI MESE"
+          value={`${totalMonthFuelLiters.toFixed(2)} L`}
+          caption="carburante registrato"
+        />
+
+        <MetricCard
+          label="SPESA CARBURANTE"
+          value={formatEuro(totalMonthFuelCost)}
+          caption="mese corrente"
+        />
+
+        <MetricCard
+          label="COSTO/KM MESE"
+          value={formatEuro(costPerKm)}
+          caption="carburante + interventi / km"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-        <Panel title="ULTIMI 30 GIORNI">
-          <DataLine label="Km percorsi" value={`${formatNumber(km30)} km`} />
-          <DataLine label="Litri carburante" value={`${formatDecimal(fuelLiters30)} L`} />
-          <DataLine label="Costo carburante" value={formatEuro(fuelCost30)} />
-          <DataLine label="Costo interventi" value={formatEuro(expensesCost30)} />
-          <DataLine label="Costo totale" value={formatEuro(totalCost30)} />
-          <DataLine label="Consumo medio" value={`${formatDecimal(avgKmPerLiter30)} km/L`} />
-          <DataLine label="Costo carburante/km" value={formatEuro(avgFuelCostPerKm30)} />
-          <DataLine label="Costo totale/km" value={formatEuro(avgTotalCostPerKm30)} />
-        </Panel>
-
-        <Panel title="TOTALI GENERALI">
-          <DataLine label="Km totali" value={`${formatNumber(kmTotal)} km`} />
-          <DataLine label="Litri totali" value={`${formatDecimal(fuelLitersTotal)} L`} />
-          <DataLine label="Carburante totale" value={formatEuro(fuelCostTotal)} />
-          <DataLine label="Interventi totali" value={formatEuro(expensesCostTotal)} />
-          <DataLine label="Costo complessivo" value={formatEuro(totalCost)} />
-          <DataLine label="Consumo medio generale" value={`${formatDecimal(avgKmPerLiter)} km/L`} />
-          <DataLine label="Costo carburante/km" value={formatEuro(avgFuelCostPerKm)} />
-          <DataLine label="Costo totale/km" value={formatEuro(avgTotalCostPerKm)} />
-        </Panel>
-
-        <Panel title="SCADENZE">
-          <DataLine label="Critiche" value={criticalDeadlines} />
-          <DataLine label="In arrivo" value={warningDeadlines} />
-          <DataLine label="Regolari" value={okDeadlines} />
-          <DataLine
-            label="Totale monitorate"
-            value={criticalDeadlines + warningDeadlines + okDeadlines}
+        <Panel title="ALERT">
+          <AlertLine
+            label="Documenti scaduti"
+            value={redDocuments}
+            tone="red"
           />
+
+          <AlertLine
+            label="Documenti in scadenza"
+            value={yellowDocuments}
+            tone="yellow"
+          />
+
+          <AlertLine
+            label="Manutenzioni scadute"
+            value={redMaintenances}
+            tone="red"
+          />
+
+          <AlertLine
+            label="Manutenzioni in scadenza"
+            value={yellowMaintenances}
+            tone="yellow"
+          />
+
+          <Link
+            href="/deadlines"
+            className="inline-block mt-4 border border-sky-800 text-sky-300 hover:bg-sky-950 px-4 py-2 text-xs font-black"
+          >
+            VEDI SCADENZE
+          </Link>
+        </Panel>
+
+        <Panel title="MEZZO PIÙ UTILIZZATO">
+          {mostUsedVehicle ? (
+            <>
+              <div className="text-lg font-black text-slate-100">
+                {mostUsedVehicle.label}
+              </div>
+              <div className="text-sm text-slate-500 mt-2">
+                {formatKm(mostUsedVehicle.km)} km registrati
+              </div>
+            </>
+          ) : (
+            <p className="text-slate-500 text-sm">Nessun dato disponibile.</p>
+          )}
+        </Panel>
+
+        <Panel title="MEZZO CON PIÙ COSTI">
+          {mostExpensiveVehicle ? (
+            <>
+              <div className="text-lg font-black text-slate-100">
+                {mostExpensiveVehicle.label}
+              </div>
+              <div className="text-sm text-slate-500 mt-2">
+                {formatEuro(mostExpensiveVehicle.totalCost)} registrati
+              </div>
+            </>
+          ) : (
+            <p className="text-slate-500 text-sm">Nessun dato disponibile.</p>
+          )}
         </Panel>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <Panel title="TOP 5 MEZZI PER COSTO">
-          {topCostVehicles.length === 0 && (
-            <p className="text-slate-500 text-sm">
-              Nessun costo registrato.
-            </p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Panel title="ULTIMI RIFORNIMENTI">
+          {recentFuel.length === 0 && (
+            <p className="text-slate-500 text-sm">Nessun rifornimento.</p>
           )}
 
-          {topCostVehicles.map((vehicle, index) => (
-            <DataLine
-              key={`${vehicle.plate}-${index}`}
-              label={`${index + 1}. ${vehicle.plate} · ${vehicle.brand || ""} ${vehicle.model || ""}`}
-              value={formatEuro(vehicle.total)}
+          {recentFuel.map((record) => (
+            <SmallRow
+              key={record.id}
+              title={record.vehicle.plate}
+              detail={`${formatDate(record.fuelDate)} · ${record.liters.toFixed(
+                2
+              )} L`}
+              value={formatEuro(record.totalCost)}
             />
           ))}
         </Panel>
 
-        <Panel title="TOP 5 MEZZI PIÙ UTILIZZATI">
-          {topUsageVehicles.length === 0 && (
-            <p className="text-slate-500 text-sm">
-              Nessun km registrato.
-            </p>
+        <Panel title="ULTIMI INTERVENTI">
+          {recentExpenses.length === 0 && (
+            <p className="text-slate-500 text-sm">Nessun intervento.</p>
           )}
 
-          {topUsageVehicles.map((vehicle, index) => (
-            <DataLine
-              key={`${vehicle.plate}-${index}`}
-              label={`${index + 1}. ${vehicle.plate} · ${vehicle.brand || ""} ${vehicle.model || ""}`}
-              value={`${formatNumber(vehicle.totalKm)} km`}
+          {recentExpenses.map((expense) => (
+            <SmallRow
+              key={expense.id}
+              title={expense.vehicle.plate}
+              detail={`${formatDate(expense.expenseDate)} · ${
+                expense.category || "Intervento"
+              }`}
+              value={formatEuro(expense.amount)}
+            />
+          ))}
+        </Panel>
+
+        <Panel title="ULTIME OPERAZIONI">
+          {recentOperations.length === 0 && (
+            <p className="text-slate-500 text-sm">Nessuna operazione.</p>
+          )}
+
+          {recentOperations.map((record) => (
+            <SmallRow
+              key={record.id}
+              title={record.vehicle.plate}
+              detail={formatDate(record.recordDate)}
+              value={`${formatKm(record.kmDone)} km`}
             />
           ))}
         </Panel>
       </div>
-
-      <Panel title="ULTIME OPERAZIONI">
-        {latestOperations.length === 0 && (
-          <p className="text-slate-500 text-sm">
-            Nessuna operazione registrata.
-          </p>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-slate-400">
-              <tr>
-                <th className="text-left py-2">DATA</th>
-                <th className="text-left py-2">MEZZO</th>
-                <th className="text-right py-2">KM PARTENZA</th>
-                <th className="text-right py-2">KM ARRIVO</th>
-                <th className="text-right py-2">KM FATTI</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {latestOperations.map((operation) => (
-                <tr
-                  key={operation.id}
-                  className="border-t border-slate-800"
-                >
-                  <td className="py-2">
-                    {operation.recordDate.toLocaleDateString("it-IT")}
-                  </td>
-
-                  <td className="py-2 font-bold">
-                    {operation.vehicle.plate}
-                  </td>
-
-                  <td className="py-2 text-right">
-                    {formatNumber(operation.startKm)}
-                  </td>
-
-                  <td className="py-2 text-right">
-                    {formatNumber(operation.endKm)}
-                  </td>
-
-                  <td className="py-2 text-right">
-                    {formatNumber(operation.kmDone)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
     </AppLayout>
   );
 }
@@ -386,24 +443,33 @@ function MetricCard({
   label,
   value,
   caption,
+  tone = "default",
 }: {
   label: string;
   value: string | number;
   caption: string;
+  tone?: "default" | "red" | "yellow" | "green";
 }) {
+  const toneClass =
+    tone === "red"
+      ? "text-red-300"
+      : tone === "yellow"
+      ? "text-yellow-300"
+      : tone === "green"
+      ? "text-emerald-300"
+      : "text-slate-100";
+
   return (
     <div className="border border-slate-800 bg-slate-900/70 p-5">
       <div className="text-xs font-black tracking-widest text-slate-500">
         {label}
       </div>
 
-      <div className="text-3xl font-black mt-2">
+      <div className={`text-3xl font-black mt-2 ${toneClass}`}>
         {value}
       </div>
 
-      <div className="text-xs text-sky-400 mt-1">
-        {caption}
-      </div>
+      <div className="text-xs text-sky-400 mt-1">{caption}</div>
     </div>
   );
 }
@@ -421,29 +487,49 @@ function Panel({
         {title}
       </h2>
 
-      <div className="space-y-2">
-        {children}
-      </div>
+      <div className="space-y-3">{children}</div>
     </div>
   );
 }
 
-function DataLine({
+function AlertLine({
   label,
   value,
+  tone,
 }: {
   label: string;
-  value: string | number;
+  value: number;
+  tone: "red" | "yellow";
+}) {
+  const className = tone === "red" ? "text-red-300" : "text-yellow-300";
+
+  return (
+    <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-sm">
+      <span className="text-slate-400">{label}</span>
+      <span className={`font-black ${className}`}>{value}</span>
+    </div>
+  );
+}
+
+function SmallRow({
+  title,
+  detail,
+  value,
+}: {
+  title: string;
+  detail: string;
+  value: string;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-sm gap-4">
-      <span className="text-slate-400">
-        {label}
-      </span>
+    <div className="flex items-start justify-between border-b border-slate-800 pb-2 gap-4 text-sm">
+      <div>
+        <div className="font-bold text-slate-100">{title}</div>
+        <div className="text-xs text-slate-500 mt-1">{detail}</div>
+      </div>
 
-      <span className="font-bold text-slate-100 text-right">
+      <div className="font-bold text-slate-100 text-right whitespace-nowrap">
         {value}
-      </span>
+      </div>
     </div>
   );
 }

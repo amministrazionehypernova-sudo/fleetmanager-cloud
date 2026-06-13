@@ -1,12 +1,12 @@
 "use client";
-import AppLayout from "@/components/AppLayout";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("admin@demo.it");
+  const [email, setEmail] = useState("admin@fleetmanager.local");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,13 +17,19 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const response = await fetch("/api/login", {
+    const response = await fetch("/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
     });
 
     const data = await response.json();
+
     setLoading(false);
 
     if (!response.ok) {
@@ -32,44 +38,76 @@ export default function LoginPage() {
     }
 
     router.push("/dashboard");
+    router.refresh();
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
-      <div className="w-full max-w-md border border-slate-800 bg-slate-900/70 p-8">
-        <h1 className="text-3xl font-black tracking-widest mb-2">
-          FLEETMANAGER
-        </h1>
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+      <form
+        onSubmit={handleLogin}
+        className="w-full max-w-md border border-slate-800 bg-slate-900/80 p-8"
+      >
+        <div className="mb-8">
+          <div className="text-xs font-black tracking-[0.35em] text-sky-400 mb-3">
+            FLEETMANAGERPRO
+          </div>
 
-        <p className="text-sm text-slate-400 mb-8">
-          Accesso gestionale flotta cloud
-        </p>
+          <h1 className="text-3xl font-black">
+            Login
+          </h1>
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <input
-            className="w-full bg-slate-950 border border-slate-700 px-4 py-3"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-          />
+          <p className="text-sm text-slate-500 mt-2">
+            Accedi al gestionale flotta.
+          </p>
+        </div>
 
-          <input
-            className="w-full bg-slate-950 border border-slate-700 px-4 py-3"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-          />
+        <div className="space-y-4">
+          <label className="block">
+            <span className="block text-xs font-black tracking-widest text-slate-500 mb-2">
+              EMAIL
+            </span>
 
-          {error && <div className="text-red-300">{error}</div>}
+            <input
+              className="w-full bg-slate-950 border border-slate-700 px-3 py-3"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              autoComplete="email"
+            />
+          </label>
 
-          <button
-            disabled={loading}
-            className="w-full bg-sky-700 px-4 py-3 font-black"
-          >
-            {loading ? "ACCESSO..." : "ACCEDI"}
-          </button>
-        </form>
-      </div>
+          <label className="block">
+            <span className="block text-xs font-black tracking-widest text-slate-500 mb-2">
+              PASSWORD
+            </span>
+
+            <input
+              className="w-full bg-slate-950 border border-slate-700 px-3 py-3"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              autoComplete="current-password"
+            />
+          </label>
+        </div>
+
+        {error && (
+          <div className="mt-5 border border-red-900 bg-red-950/40 text-red-200 px-4 py-3 text-sm">
+            {error}
+          </div>
+        )}
+
+        <button
+          disabled={loading}
+          className="mt-6 w-full bg-sky-700 hover:bg-sky-600 disabled:opacity-50 px-6 py-3 font-black tracking-widest"
+        >
+          {loading ? "ACCESSO..." : "ACCEDI"}
+        </button>
+
+        <div className="text-xs text-slate-600 mt-5">
+          Utente test: admin@fleetmanager.local
+        </div>
+      </form>
     </main>
   );
 }

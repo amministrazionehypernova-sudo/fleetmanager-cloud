@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-
+import LogoutButton from "@/components/LogoutButton";
 type AppLayoutProps = {
   children: ReactNode;
   title: string;
@@ -16,6 +16,8 @@ const menuItems = [
   { label: "Rinnovi Documenti", href: "/document-renewals", number: "06" },
   { label: "Scadenze", href: "/deadlines", number: "07" },
   { label: "Manutenzioni Programmate", href: "/maintenance-programs", number: "08" },
+  { label: "Report", href: "/report", number: "09" },
+  
 ];
 
 export default function AppLayout({
@@ -52,6 +54,9 @@ export default function AppLayout({
             </Link>
           ))}
         </nav>
+        <div className="mt-6 px-4">
+  <LogoutButton />
+</div>
       </aside>
 
       <main className="flex-1 p-8 overflow-x-hidden">
