@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 function toDateOrNull(value: unknown) {
   if (!value) return null;
@@ -20,9 +19,11 @@ function toNumberOrNull(value: unknown) {
 
 export async function GET() {
   try {
+    const session = await requireSession();
+
     const vehicles = await prisma.vehicle.findMany({
       where: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
         status: "active",
       },
       orderBy: {
@@ -43,6 +44,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireSession();
+
     const body = await request.json();
 
     const plate = String(body.plate || "").trim().toUpperCase();
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
 
     const vehicle = await prisma.vehicle.create({
       data: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
         plate,
         brand,
         model,
@@ -83,6 +86,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await requireSession();
+
     const body = await request.json();
 
     const id = String(body.id || "");
@@ -91,6 +96,20 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         { error: "ID veicolo mancante." },
         { status: 400 }
+      );
+    }
+
+    const vehicleExists = await prisma.vehicle.findFirst({
+      where: {
+        id,
+        companyId: session.companyId,
+      },
+    });
+
+    if (!vehicleExists) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato." },
+        { status: 404 }
       );
     }
 
@@ -132,6 +151,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const session = await requireSession();
+
     const body = await request.json();
 
     const id = String(body.id || "");
@@ -140,6 +161,20 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         { error: "ID veicolo mancante." },
         { status: 400 }
+      );
+    }
+
+    const vehicleExists = await prisma.vehicle.findFirst({
+      where: {
+        id,
+        companyId: session.companyId,
+      },
+    });
+
+    if (!vehicleExists) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato." },
+        { status: 404 }
       );
     }
 
@@ -162,3 +197,4 @@ export async function DELETE(request: Request) {
     );
   }
 }
+

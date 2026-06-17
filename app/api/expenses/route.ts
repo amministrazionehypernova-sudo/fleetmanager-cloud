@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const session = await requireSession();
+
     const expenses = await prisma.expense.findMany({
       where: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
       },
       include: {
         vehicle: true,
@@ -30,12 +31,39 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireSession();
+    const companyId = session.companyId;
+
     const body = await request.json();
+
+    const vehicleId = String(body.vehicleId || "");
+
+    if (!vehicleId) {
+      return NextResponse.json(
+        { error: "Seleziona un veicolo." },
+        { status: 400 }
+      );
+    }
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+        status: "active",
+      },
+    });
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato o non autorizzato." },
+        { status: 404 }
+      );
+    }
 
     const expense = await prisma.expense.create({
       data: {
-        companyId: DEMO_COMPANY_ID,
-        vehicleId: String(body.vehicleId || ""),
+        companyId,
+        vehicleId,
         expenseDate: new Date(body.expenseDate),
         kmValue: Number(body.kmValue || 0),
         category: String(body.category || "").trim(),

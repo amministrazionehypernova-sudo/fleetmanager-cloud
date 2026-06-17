@@ -2,8 +2,7 @@ import Link from "next/link";
 import AppLayout from "@/components/AppLayout";
 import ReportCharts from "@/components/ReportCharts";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 type ReportPageProps = {
   searchParams?: Promise<{
@@ -56,6 +55,9 @@ function formatDate(value: Date | string | null | undefined) {
 }
 
 export default async function ReportPage({ searchParams }: ReportPageProps) {
+  const session = await requireSession();
+  const companyId = session.companyId;
+
   const params = searchParams ? await searchParams : {};
 
   const selectedVehicleId = params.vehicleId || "all";
@@ -67,7 +69,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
   const vehicles = await prisma.vehicle.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
     },
     orderBy: {
       plate: "asc",
@@ -83,7 +85,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
   const dailyRecords = await prisma.dailyRecord.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       ...vehicleFilter,
       recordDate: {
         gte: fromDate,
@@ -100,7 +102,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
   const fuelRecords = await prisma.fuelRecord.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       ...vehicleFilter,
       fuelDate: {
         gte: fromDate,
@@ -117,7 +119,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
   const expenses = await prisma.expense.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       ...vehicleFilter,
       expenseDate: {
         gte: fromDate,
@@ -134,7 +136,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
   const documentRenewals = await prisma.documentRenewal.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       ...vehicleFilter,
       renewalDate: {
         gte: fromDate,

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 function toNumberOrNull(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
@@ -10,9 +9,11 @@ function toNumberOrNull(value: unknown) {
 
 export async function GET() {
   try {
+    const session = await requireSession();
+
     const items = await prisma.scheduledMaintenance.findMany({
       where: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
         status: "active",
       },
       include: {
@@ -36,7 +37,26 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireSession();
+    const companyId = session.companyId;
+
     const body = await request.json();
+
+    const vehicleId = String(body.vehicleId);
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+      },
+    });
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato." },
+        { status: 404 }
+      );
+    }
 
     const workItemIds = Array.isArray(body.workItemIds)
       ? body.workItemIds.map((item: unknown) => String(item))
@@ -48,14 +68,17 @@ export async function POST(request: Request) {
 
     const item = await prisma.scheduledMaintenance.create({
       data: {
-        companyId: DEMO_COMPANY_ID,
-        vehicleId: String(body.vehicleId),
+        companyId,
+        vehicleId,
         title: String(body.title || "").trim(),
         worksText,
         workItemsJson: JSON.stringify(workItemIds),
         dueType,
         dueKm: dueType === "km" ? toNumberOrNull(body.dueKm) : null,
-        dueDate: dueType === "date" && body.dueDate ? new Date(body.dueDate) : null,
+        dueDate:
+          dueType === "date" && body.dueDate
+            ? new Date(body.dueDate)
+            : null,
         warningKm: body.warningKm ? Number(body.warningKm) : 1000,
         warningDays: body.warningDays ? Number(body.warningDays) : 30,
         notes: String(body.notes || "").trim() || null,
@@ -75,7 +98,23 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await requireSession();
+
     const body = await request.json();
+
+    const itemExists = await prisma.scheduledMaintenance.findFirst({
+      where: {
+        id: String(body.id),
+        companyId: session.companyId,
+      },
+    });
+
+    if (!itemExists) {
+      return NextResponse.json(
+        { error: "Manutenzione non trovata." },
+        { status: 404 }
+      );
+    }
 
     const workItemIds = Array.isArray(body.workItemIds)
       ? body.workItemIds.map((item: unknown) => String(item))
@@ -96,7 +135,10 @@ export async function PATCH(request: Request) {
         workItemsJson: JSON.stringify(workItemIds),
         dueType,
         dueKm: dueType === "km" ? toNumberOrNull(body.dueKm) : null,
-        dueDate: dueType === "date" && body.dueDate ? new Date(body.dueDate) : null,
+        dueDate:
+          dueType === "date" && body.dueDate
+            ? new Date(body.dueDate)
+            : null,
         warningKm: body.warningKm ? Number(body.warningKm) : 1000,
         warningDays: body.warningDays ? Number(body.warningDays) : 30,
         notes: String(body.notes || "").trim() || null,
@@ -116,7 +158,23 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const session = await requireSession();
+
     const body = await request.json();
+
+    const itemExists = await prisma.scheduledMaintenance.findFirst({
+      where: {
+        id: String(body.id),
+        companyId: session.companyId,
+      },
+    });
+
+    if (!itemExists) {
+      return NextResponse.json(
+        { error: "Manutenzione non trovata." },
+        { status: 404 }
+      );
+    }
 
     const item = await prisma.scheduledMaintenance.update({
       where: {

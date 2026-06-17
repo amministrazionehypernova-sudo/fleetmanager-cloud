@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 function toNumberOrZero(value: unknown) {
   if (!value) return 0;
@@ -10,9 +9,11 @@ function toNumberOrZero(value: unknown) {
 
 export async function GET() {
   try {
+    const session = await requireSession();
+
     const records = await prisma.fuelRecord.findMany({
       where: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
       },
       include: {
         vehicle: true,
@@ -35,6 +36,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireSession();
+    const companyId = session.companyId;
+
     const body = await request.json();
 
     const vehicleId = String(body.vehicleId || "");
@@ -48,6 +52,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Seleziona un veicolo." },
         { status: 400 }
+      );
+    }
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+        status: "active",
+      },
+    });
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato o non autorizzato." },
+        { status: 404 }
       );
     }
 
@@ -76,7 +95,7 @@ export async function POST(request: Request) {
 
     const record = await prisma.fuelRecord.create({
       data: {
-        companyId: DEMO_COMPANY_ID,
+        companyId,
         vehicleId,
         fuelDate: new Date(fuelDate),
         kmValue,

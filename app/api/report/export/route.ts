@@ -1,8 +1,7 @@
 import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 function todayInputDate() {
   return new Date().toISOString().slice(0, 10);
@@ -36,6 +35,9 @@ function formatVehicle(vehicle: {
 }
 
 export async function GET(request: Request) {
+  const session = await requireSession();
+  const companyId = session.companyId;
+  
   const { searchParams } = new URL(request.url);
 
   const vehicleId = searchParams.get("vehicleId") || "all";
@@ -56,7 +58,7 @@ export async function GET(request: Request) {
     await Promise.all([
       prisma.vehicle.findMany({
         where: {
-          companyId: DEMO_COMPANY_ID,
+          companyId,
         },
         orderBy: {
           plate: "asc",
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
 
       prisma.dailyRecord.findMany({
         where: {
-          companyId: DEMO_COMPANY_ID,
+          companyId,
           ...vehicleFilter,
           recordDate: {
             gte: fromDate,
@@ -82,7 +84,7 @@ export async function GET(request: Request) {
 
       prisma.fuelRecord.findMany({
         where: {
-          companyId: DEMO_COMPANY_ID,
+          companyId,
           ...vehicleFilter,
           fuelDate: {
             gte: fromDate,
@@ -99,7 +101,7 @@ export async function GET(request: Request) {
 
       prisma.expense.findMany({
         where: {
-          companyId: DEMO_COMPANY_ID,
+          companyId,
           ...vehicleFilter,
           expenseDate: {
             gte: fromDate,
@@ -116,7 +118,7 @@ export async function GET(request: Request) {
 
       prisma.documentRenewal.findMany({
         where: {
-          companyId: DEMO_COMPANY_ID,
+          companyId,
           ...vehicleFilter,
           renewalDate: {
             gte: fromDate,

@@ -1,14 +1,14 @@
-import AppLayout from "@/components/AppLayout";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const session = await requireSession();
+
     const records = await prisma.dailyRecord.findMany({
       where: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
       },
       include: {
         vehicle: true,
@@ -31,6 +31,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireSession();
+    const companyId = session.companyId;
+
     const body = await request.json();
 
     const vehicleId = String(body.vehicleId || "");
@@ -48,6 +51,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+        status: "active",
+      },
+    });
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato o non autorizzato." },
+        { status: 404 }
+      );
+    }
+
     if (!recordDate) {
       return NextResponse.json(
         { error: "La data è obbligatoria." },
@@ -57,7 +75,10 @@ export async function POST(request: Request) {
 
     if (endKm < startKm) {
       return NextResponse.json(
-        { error: "I km di arrivo non possono essere inferiori ai km di partenza." },
+        {
+          error:
+            "I km di arrivo non possono essere inferiori ai km di partenza.",
+        },
         { status: 400 }
       );
     }
@@ -66,32 +87,36 @@ export async function POST(request: Request) {
     const kmPerLiter = liters > 0 ? kmDone / liters : 0;
     const costPerKm = kmDone > 0 ? fuelCost / kmDone : 0;
 
-    const record = await prisma.dailyRecord.create({
-      data: {
-        companyId: DEMO_COMPANY_ID,
-        vehicleId,
-        recordDate: new Date(recordDate),
-        startKm,
-        endKm,
-        kmDone,
-        liters,
-        fuelCost,
-        kmPerLiter,
-        costPerKm,
-        notes,
-      },
+    const result = await prisma.$transaction(async (tx) => {
+      const record = await tx.dailyRecord.create({
+        data: {
+          companyId,
+          vehicleId,
+          recordDate: new Date(recordDate),
+          startKm,
+          endKm,
+          kmDone,
+          liters,
+          fuelCost,
+          kmPerLiter,
+          costPerKm,
+          notes,
+        },
+      });
+
+      await tx.vehicle.update({
+        where: {
+          id: vehicleId,
+        },
+        data: {
+          currentKm: endKm,
+        },
+      });
+
+      return record;
     });
 
-    await prisma.vehicle.update({
-      where: {
-        id: vehicleId,
-      },
-      data: {
-        currentKm: endKm,
-      },
-    });
-
-    return NextResponse.json({ record });
+    return NextResponse.json({ record: result });
   } catch (error) {
     console.error(error);
 

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 function toNumberOrZero(value: unknown) {
   if (value === null || value === undefined || value === "") return 0;
@@ -15,9 +14,11 @@ function toNumberOrNull(value: unknown) {
 
 export async function GET() {
   try {
+    const session = await requireSession();
+
     const records = await prisma.dailyRecord.findMany({
       where: {
-        companyId: DEMO_COMPANY_ID,
+        companyId: session.companyId,
       },
       include: {
         vehicle: true,
@@ -41,6 +42,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await requireSession();
+    const companyId = session.companyId;
+
     const body = await request.json();
 
     const vehicleId = String(body.vehicleId || "");
@@ -58,7 +62,9 @@ export async function POST(request: Request) {
     const hasExpense = Boolean(body.hasExpense);
 
     const selectedWorks = Array.isArray(body.workItemIds)
-      ? body.workItemIds.map((item: unknown) => String(item).trim()).filter(Boolean)
+      ? body.workItemIds
+          .map((item: unknown) => String(item).trim())
+          .filter(Boolean)
       : [];
 
     const expenseCategory = String(body.expenseCategory || "").trim();
@@ -72,6 +78,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Seleziona un veicolo." },
         { status: 400 }
+      );
+    }
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        companyId,
+        status: "active",
+      },
+    });
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: "Veicolo non trovato o non autorizzato." },
+        { status: 404 }
       );
     }
 
@@ -98,14 +119,20 @@ export async function POST(request: Request) {
 
     if (hasFuel && fuelTotalCost <= 0) {
       return NextResponse.json(
-        { error: "Hai selezionato rifornimento: inserisci costo carburante valido." },
+        {
+          error:
+            "Hai selezionato rifornimento: inserisci costo carburante valido.",
+        },
         { status: 400 }
       );
     }
 
     if (hasExpense && selectedWorks.length === 0 && !expenseCategory) {
       return NextResponse.json(
-        { error: "Hai selezionato intervento: scegli almeno un lavoro o inserisci una categoria." },
+        {
+          error:
+            "Hai selezionato intervento: scegli almeno un lavoro o inserisci una categoria.",
+        },
         { status: 400 }
       );
     }
@@ -115,7 +142,7 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const dailyRecord = await tx.dailyRecord.create({
         data: {
-          companyId: DEMO_COMPANY_ID,
+          companyId,
           vehicleId,
           recordDate: new Date(recordDate),
           startKm,
@@ -143,7 +170,7 @@ export async function POST(request: Request) {
       if (hasFuel) {
         fuelRecord = await tx.fuelRecord.create({
           data: {
-            companyId: DEMO_COMPANY_ID,
+            companyId,
             vehicleId,
             fuelDate: new Date(recordDate),
             kmValue: endKm,
@@ -175,7 +202,7 @@ export async function POST(request: Request) {
 
         expense = await tx.expense.create({
           data: {
-            companyId: DEMO_COMPANY_ID,
+            companyId,
             vehicleId,
             expenseDate: new Date(recordDate),
             kmValue: endKm,
@@ -201,7 +228,7 @@ export async function POST(request: Request) {
 
           scheduledMaintenance = await tx.scheduledMaintenance.create({
             data: {
-              companyId: DEMO_COMPANY_ID,
+              companyId,
               vehicleId,
               title: expenseCategory || "Tagliando / Manutenzione",
               worksText: finalCategory,

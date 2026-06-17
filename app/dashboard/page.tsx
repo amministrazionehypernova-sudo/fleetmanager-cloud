@@ -1,8 +1,7 @@
 import Link from "next/link";
 import AppLayout from "@/components/AppLayout";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_COMPANY_ID = "demo-company";
+import { requireSession } from "@/lib/auth";
 
 function formatKm(value: number | null | undefined) {
   return (value || 0).toLocaleString("it-IT", {
@@ -60,9 +59,11 @@ function getMaintenanceLevel(
 }
 
 export default async function DashboardPage() {
+  const session = await requireSession();
+  const companyId = session.companyId;
   const vehicles = await prisma.vehicle.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
     },
     include: {
       fuelRecords: true,
@@ -84,7 +85,7 @@ export default async function DashboardPage() {
 
   const monthlyFuel = await prisma.fuelRecord.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       fuelDate: {
         gte: monthFrom,
       },
@@ -99,7 +100,7 @@ export default async function DashboardPage() {
 
   const monthlyExpenses = await prisma.expense.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       expenseDate: {
         gte: monthFrom,
       },
@@ -114,7 +115,7 @@ export default async function DashboardPage() {
 
   const monthlyRecords = await prisma.dailyRecord.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
       recordDate: {
         gte: monthFrom,
       },
@@ -193,7 +194,7 @@ export default async function DashboardPage() {
 
   const recentFuel = await prisma.fuelRecord.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
     },
     include: {
       vehicle: true,
@@ -206,7 +207,7 @@ export default async function DashboardPage() {
 
   const recentExpenses = await prisma.expense.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
     },
     include: {
       vehicle: true,
@@ -219,7 +220,7 @@ export default async function DashboardPage() {
 
   const recentOperations = await prisma.dailyRecord.findMany({
     where: {
-      companyId: DEMO_COMPANY_ID,
+      companyId,
     },
     include: {
       vehicle: true,
