@@ -41,9 +41,12 @@ export default async function CompanyUsersPage({
           ← TORNA ADMIN
         </Link>
 
-        <button className="bg-sky-700 hover:bg-sky-600 px-5 py-3 text-sm font-black tracking-widest">
-          + CREA UTENTE
-        </button>
+       <Link
+  href={`/admin/companies/${company.id}/users/new`}
+  className="bg-sky-700 hover:bg-sky-600 px-5 py-3 text-sm font-black tracking-widest"
+>
+  + CREA UTENTE
+</Link>
       </div>
 
       <div className="border border-slate-800 bg-slate-900/70 p-5">
