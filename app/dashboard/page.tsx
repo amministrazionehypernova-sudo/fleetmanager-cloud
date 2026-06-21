@@ -1,3 +1,4 @@
+import ReturnAdminButton from "@/components/ReturnAdminButton";
 import Link from "next/link";
 import AppLayout from "@/components/AppLayout";
 import { prisma } from "@/lib/prisma";
@@ -262,11 +263,18 @@ export default async function DashboardPage() {
     (a, b) => b.totalCost - a.totalCost
   )[0];
 
-  return (
+  
+      return (
     <AppLayout
       title="DASHBOARD"
       subtitle="Panoramica operativa flotta"
     >
+      {session.role === "superadmin" && session.originalCompanyId && (
+        <div className="mb-4">
+          <ReturnAdminButton />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <MetricCard
           label="VEICOLI ATTIVI"
