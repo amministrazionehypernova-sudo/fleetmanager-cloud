@@ -26,13 +26,30 @@ export default async function AdminPage() {
   return (
     <AppLayout title="HYPERNOVA ADMIN" subtitle="Pannello amministrazione SaaS">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <AdminCard title="AZIENDE" value={String(companies.length)} description="Aziende registrate" />
-        <AdminCard title="UTENTI" value={String(totalUsers)} description="Utenti totali" />
-        <AdminCard title="SISTEMA" value="ONLINE" description="Accesso Super Admin verificato" />
+        <AdminCard
+          title="AZIENDE"
+          value={String(companies.length)}
+          description="Aziende registrate"
+        />
+
+        <AdminCard
+          title="UTENTI"
+          value={String(totalUsers)}
+          description="Utenti totali"
+        />
+
+        <AdminCard
+          title="SISTEMA"
+          value="ONLINE"
+          description="Accesso Super Admin verificato"
+        />
       </div>
 
       <div className="mb-4 flex justify-end">
-        <Link href="/admin/companies/new" className="bg-sky-700 hover:bg-sky-600 px-5 py-3 text-sm font-black tracking-widest">
+        <Link
+          href="/admin/companies/new"
+          className="bg-sky-700 hover:bg-sky-600 px-5 py-3 text-sm font-black tracking-widest"
+        >
           + CREA AZIENDA
         </Link>
       </div>
@@ -61,22 +78,49 @@ export default async function AdminPage() {
               {companies.map((company) => (
                 <tr key={company.id} className="border-b border-slate-800">
                   <td className="p-3 font-bold">{company.name}</td>
+
                   <td className="p-3 uppercase">{company.plan}</td>
+
                   <td className="p-3">
-                    {company.isActive ? <span className="text-emerald-400">ATTIVA</span> : <span className="text-red-400">DISATTIVA</span>}
+                    {company.isActive ? (
+                      <span className="text-emerald-400">ATTIVA</span>
+                    ) : (
+                      <span className="text-red-400">DISATTIVA</span>
+                    )}
                   </td>
+
                   <td className="p-3">{company.maxVehicles}</td>
+
                   <td className="p-3">{company.users.length}</td>
+
                   <td className="p-3">
-                    {company.expiresAt ? new Date(company.expiresAt).toLocaleDateString("it-IT") : "-"}
+                    {company.expiresAt
+                      ? new Date(company.expiresAt).toLocaleDateString("it-IT")
+                      : "-"}
                   </td>
+
                   <td className="p-3">
                     {new Date(company.createdAt).toLocaleDateString("it-IT")}
                   </td>
+
                   <td className="p-3">
                     <div className="flex gap-2">
-                      <AdminCompanyToggleButton companyId={company.id} isActive={company.isActive} />
-                      <AdminImpersonateButton companyId={company.id} companyName={company.name} />
+                      <AdminCompanyToggleButton
+                        companyId={company.id}
+                        isActive={company.isActive}
+                      />
+
+                      <AdminImpersonateButton
+                        companyId={company.id}
+                        companyName={company.name}
+                      />
+
+                      <Link
+                        href={`/admin/companies/${company.id}/users`}
+                        className="px-3 py-2 text-xs font-black border border-violet-800 text-violet-300 hover:bg-violet-950"
+                      >
+                        UTENTI
+                      </Link>
                     </div>
                   </td>
                 </tr>
@@ -108,8 +152,12 @@ function AdminCard({
 }) {
   return (
     <div className="border border-slate-800 bg-slate-900/70 p-5">
-      <div className="text-xs font-black tracking-widest text-slate-500">{title}</div>
+      <div className="text-xs font-black tracking-widest text-slate-500">
+        {title}
+      </div>
+
       <div className="text-2xl font-black mt-2 text-slate-100">{value}</div>
+
       <div className="text-xs text-sky-400 mt-2">{description}</div>
     </div>
   );
