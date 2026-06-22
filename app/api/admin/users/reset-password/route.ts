@@ -8,10 +8,7 @@ export async function POST(request: Request) {
     const session = await requireSession();
 
     if (session.role !== "superadmin") {
-      return NextResponse.json(
-        { error: "Non autorizzato." },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Non autorizzato." }, { status: 403 });
     }
 
     const body = await request.json();
@@ -26,36 +23,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { error: "La password deve avere almeno 6 caratteri." },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Utente non trovato." },
-        { status: 404 }
-      );
-    }
-
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
       where: { id: userId },
-      data: {
-        password: passwordHash,
-      },
+      data: { password: passwordHash },
     });
 
-    return NextResponse.json({
-      ok: true,
-    });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("RESET PASSWORD ERROR:", error);
 
