@@ -45,6 +45,34 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await requireSession();
+    const activeVehiclesCount = await prisma.vehicle.count({
+  where: {
+    companyId: session.companyId,
+    status: "active",
+  },
+});
+
+const company = await prisma.company.findUnique({
+  where: {
+    id: session.companyId,
+  },
+});
+
+if (!company) {
+  return NextResponse.json(
+    { error: "Azienda non trovata." },
+    { status: 404 }
+  );
+}
+
+if (activeVehiclesCount >= company.maxVehicles) {
+  return NextResponse.json(
+    {
+      error: `Limite veicoli raggiunto. Il piano attuale consente massimo ${company.maxVehicles} veicoli attivi.`,
+    },
+    { status: 403 }
+  );
+}
 
     const body = await request.json();
 
