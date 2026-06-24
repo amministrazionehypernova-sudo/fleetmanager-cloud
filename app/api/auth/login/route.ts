@@ -19,9 +19,8 @@ export async function POST(request: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: {
-        email,
-      },
+      where: { email },
+      include: { company: true },
     });
 
     if (!user) {
@@ -38,6 +37,22 @@ export async function POST(request: Request) {
         { error: "Credenziali non valide." },
         { status: 401 }
       );
+    }
+
+    if (user.role !== "superadmin") {
+      if (!user.company.isActive) {
+        return NextResponse.json(
+          { error: "Account azienda disattivato. Contatta l'amministratore." },
+          { status: 403 }
+        );
+      }
+
+      if (user.company.expiresAt && user.company.expiresAt < new Date()) {
+        return NextResponse.json(
+          { error: "Abbonamento scaduto. Contatta l'amministratore." },
+          { status: 403 }
+        );
+      }
     }
 
     const token = await createSession({
@@ -57,9 +72,7 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    return NextResponse.json({
-      ok: true,
-    });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
 
