@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -103,6 +104,15 @@ export default function LoginPage() {
         >
           {loading ? "ACCESSO..." : "ACCEDI"}
         </button>
+
+        <footer className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-500">
+          <Link className="hover:text-sky-400" href="/privacy">
+            Privacy Policy
+          </Link>
+          <Link className="hover:text-sky-400" href="/termini">
+            Termini di Servizio
+          </Link>
+        </footer>
       </form>
     </main>
   );
