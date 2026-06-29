@@ -13,6 +13,10 @@ export default function NewCompanyPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [plan, setPlan] = useState("basic");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [maxVehicles, setMaxVehicles] = useState("30");
+  const [isActive, setIsActive] = useState(true);
 
   async function handleSubmit(
     e: React.FormEvent<HTMLFormElement>
@@ -33,6 +37,10 @@ export default function NewCompanyPage() {
           fullName,
           email,
           password,
+          plan,
+          expiresAt,
+          maxVehicles: Number(maxVehicles),
+          isActive,
         }),
       }
     );
@@ -98,6 +106,41 @@ export default function NewCompanyPage() {
             }
             className="w-full bg-slate-950 border border-slate-700 p-3"
           />
+
+          <select
+            value={plan}
+            onChange={(e) => setPlan(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-700 p-3"
+          >
+            <option value="basic">Basic</option>
+            <option value="pro">Pro</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+
+          <input
+            type="number"
+            min="1"
+            placeholder="Max veicoli"
+            value={maxVehicles}
+            onChange={(e) => setMaxVehicles(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-700 p-3"
+          />
+
+          <input
+            type="date"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-700 p-3"
+          />
+
+          <label className="flex items-center gap-3 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+            />
+            Azienda attiva
+          </label>
 
           <button
             disabled={loading}

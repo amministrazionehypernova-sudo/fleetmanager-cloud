@@ -22,10 +22,37 @@ export async function POST(request: Request) {
       .trim()
       .toLowerCase();
     const password = String(body.password || "");
+    const plan = String(body.plan || "basic").trim().toLowerCase();
+    const expiresAtValue = String(body.expiresAt || "").trim();
+    const maxVehicles = Number(body.maxVehicles || 30);
+    const isActive = body.isActive !== false;
 
     if (!companyName || !email || !password) {
       return NextResponse.json(
         { error: "Campi obbligatori mancanti." },
+        { status: 400 }
+      );
+    }
+
+    if (!["basic", "pro", "enterprise"].includes(plan)) {
+      return NextResponse.json(
+        { error: "Piano azienda non valido." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(maxVehicles) || maxVehicles < 1) {
+      return NextResponse.json(
+        { error: "Il numero massimo di veicoli deve essere almeno 1." },
+        { status: 400 }
+      );
+    }
+
+    const expiresAt = expiresAtValue ? new Date(expiresAtValue) : null;
+
+    if (expiresAtValue && Number.isNaN(expiresAt?.getTime())) {
+      return NextResponse.json(
+        { error: "Data scadenza non valida." },
         { status: 400 }
       );
     }
@@ -49,6 +76,10 @@ export async function POST(request: Request) {
       const company = await tx.company.create({
         data: {
           name: companyName,
+          isActive,
+          plan,
+          expiresAt,
+          maxVehicles,
         },
       });
 
