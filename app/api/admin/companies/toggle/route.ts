@@ -17,12 +17,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Azienda mancante" }, { status: 400 });
     }
 
+    if (companyId === session.companyId || companyId === session.originalCompanyId) {
+      return NextResponse.json(
+        { error: "Non puoi disattivare l'azienda SuperAdmin corrente." },
+        { status: 400 }
+      );
+    }
+
     const company = await prisma.company.findUnique({
       where: { id: companyId },
+      include: { users: true },
     });
 
     if (!company) {
       return NextResponse.json({ error: "Azienda non trovata" }, { status: 404 });
+    }
+
+    if (company.users.some((user) => user.role === "superadmin")) {
+      return NextResponse.json(
+        { error: "Non puoi disattivare un'azienda con utenti SuperAdmin." },
+        { status: 400 }
+      );
     }
 
     const updatedCompany = await prisma.company.update({

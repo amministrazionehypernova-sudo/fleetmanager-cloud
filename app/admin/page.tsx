@@ -15,7 +15,10 @@ export default async function AdminPage() {
   }
 
   const companies = await prisma.company.findMany({
-    include: { users: true },
+    include: {
+      users: true,
+      vehicles: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -23,26 +26,46 @@ export default async function AdminPage() {
     (total, company) => total + company.users.length,
     0
   );
+  const activeCompanies = companies.filter((company) => company.isActive).length;
+  const inactiveCompanies = companies.length - activeCompanies;
+  const totalVehicles = companies.reduce(
+    (total, company) =>
+      total +
+      company.vehicles.filter((vehicle) => vehicle.status === "active").length,
+    0
+  );
 
   return (
     <AppLayout title="HYPERNOVA ADMIN" subtitle="Pannello amministrazione SaaS">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
         <AdminCard
           title="AZIENDE"
           value={String(companies.length)}
-          description="Aziende registrate"
+          description="Totale aziende"
+        />
+
+        <AdminCard
+          title="ATTIVE"
+          value={String(activeCompanies)}
+          description="Aziende abilitate"
+        />
+
+        <AdminCard
+          title="DISATTIVE"
+          value={String(inactiveCompanies)}
+          description="Aziende bloccate"
         />
 
         <AdminCard
           title="UTENTI"
           value={String(totalUsers)}
-          description="Utenti totali"
+          description="Utenti registrati"
         />
 
         <AdminCard
-          title="SISTEMA"
-          value="ONLINE"
-          description="Accesso Super Admin verificato"
+          title="VEICOLI"
+          value={String(totalVehicles)}
+          description="Veicoli attivi"
         />
       </div>
 
@@ -107,6 +130,7 @@ export default async function AdminPage() {
                 <th className="text-left p-3">PIANO</th>
                 <th className="text-left p-3">STATO</th>
                 <th className="text-left p-3">MAX VEICOLI</th>
+                <th className="text-left p-3">VEICOLI</th>
                 <th className="text-left p-3">UTENTI</th>
                 <th className="text-left p-3">SCADENZA</th>
                 <th className="text-left p-3">CREATA IL</th>
@@ -147,6 +171,14 @@ export default async function AdminPage() {
 
                   <td className="p-3">{company.maxVehicles}</td>
 
+                  <td className="p-3">
+                    {
+                      company.vehicles.filter(
+                        (vehicle) => vehicle.status === "active"
+                      ).length
+                    }
+                  </td>
+
                   <td className="p-3">{company.users.length}</td>
 
                   <td className="p-3">
@@ -184,7 +216,7 @@ export default async function AdminPage() {
 
               {companies.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-6 text-center text-slate-500">
+                  <td colSpan={10} className="p-6 text-center text-slate-500">
                     Nessuna azienda registrata
                   </td>
                 </tr>

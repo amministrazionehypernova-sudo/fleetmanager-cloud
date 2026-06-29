@@ -42,6 +42,22 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.role !== "superadmin") {
+      if (!user.company.isActive) {
+        return NextResponse.json(
+          { error: "Account azienda disattivato. Contatta l'amministratore." },
+          { status: 403 }
+        );
+      }
+
+      if (user.company.expiresAt && user.company.expiresAt < new Date()) {
+        return NextResponse.json(
+          { error: "Abbonamento scaduto. Contatta l'amministratore." },
+          { status: 403 }
+        );
+      }
+    }
+
     const token = jwt.sign(
       {
         userId: user.id,
