@@ -23,6 +23,28 @@ export async function POST(request: Request) {
       );
     }
 
+    if (newPassword.length < 6) {
+      return NextResponse.json(
+        { error: "La nuova password deve avere almeno 6 caratteri." },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "Utente non trovato." }, { status: 404 });
+    }
+
+    if (user.role === "superadmin") {
+      return NextResponse.json(
+        { error: "Non puoi resettare la password di un SuperAdmin da questa sezione." },
+        { status: 400 }
+      );
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
