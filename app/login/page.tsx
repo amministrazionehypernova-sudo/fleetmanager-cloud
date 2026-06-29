@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("admin@fleetmanager.local");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -103,10 +103,6 @@ export default function LoginPage() {
         >
           {loading ? "ACCESSO..." : "ACCEDI"}
         </button>
-
-        <div className="text-xs text-slate-600 mt-5">
-          Utente test: admin@fleetmanager.local
-        </div>
       </form>
     </main>
   );
